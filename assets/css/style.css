@@ -1,0 +1,7 @@
+.error{
+    color: #ff0000;
+}
+
+.navbar-collapse {
+    flex-grow: initial;
+}
