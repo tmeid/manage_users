@@ -1,6 +1,8 @@
 <?php
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
+
 include_blade('assets/blade/sub_header.php', 'Đăng ký');
 
 if (isset($_POST['submit'])) {
@@ -88,97 +90,22 @@ if (isset($_POST['submit'])) {
         $insertEmailStatus = insert('emails_queue', ['email' => $email]);
 
         if ($insertStatus && $insertEmailStatus) {
-            setFlashSession('msg', 'Đăng kí thành công, vui lòng kiểm tra email để kích hoạt tài khoản');
-            setFlashSession('type', 'success');
+            $path = getUrl(__ENV) . '?module=auth&action=active_account&token=' . $token;
+            $content = "<p>Xin chào $fullname,</p>";
+            $content .= "<p>Vui lòng click vào link sau để kích hoạt tài khoản: $path</p>";
+            $sendMailStatus = sendMail($formData['email'], 'Email kích hoạt tài khoản', $content);
 
-            // ob_end_clean();
-            // header("Connection: close\\r\\n");
-            // header("Content-Encoding: none\\r\\n");
-            // ignore_user_abort(true);
-            // ini_set('max_execution_time', 300);
-            // ob_start();
-            // $size = ob_get_length();
-            // header("Content-Length: $size");
-            // ob_end_flush();
-            // flush();
-            // ob_end_clean();
-
-            $total_mails = getRows("SELECT id FROM emails_queue WHERE is_sent =:is_sent", ['is_sent' => 0]);
-
-            // $limit: total mails are queued per round
-            $limit = __LIMIT_MAIL;
-            $total_rounds = ceil($total_mails / $limit);
-
-            // create folder queue
-            $queue_path = dirname(dirname(__DIR__)) . '/includes/queue/';
-
-            if (!file_exists($queue_path)) {
-                mkdir($queue_path, 0777, true);
-            }         
-            
-            for ($i = 1; $i <= $total_rounds; $i++) {
-                $emailsData = getRaw("SELECT * FROM emails_queue WHERE is_sent =:is_sent LIMIT 0, $limit", ['is_sent' => 0]);
-
-                foreach ($emailsData as $emailData) {
-                    $mail = new PHPMailer();
-                    $path = getUrl(__ENV) . '?module=auth&action=active_account&token=' . $token;
-                    $content = "<p>Xin chào " . $emailData['email'] . ",</p>";
-                    $content .= "<p>Vui lòng click vào link sau để kích hoạt tài khoản: $path</p>";
-
-                    $mail->Body = $content;
-                    $mail->addAddress($emailData['email']);     //Add a recipient
-
-                    save_to_distinct_file($mail, $emailData['id']);
-                }
-                
-                $values = get_next_mail();
-
-                // get mail content from file
-                while ($values !== null) {
-                    $mail = $values['content'];
-                    $id = $values['id'];
-
-                    $mail->SMTPDebug = SMTP::DEBUG_OFF;                      //Enable verbose debug output
-                    $mail->isSMTP();                                            //Send using SMTP
-                    $mail->Host       = 'smtp.gmail.com';                     //Set the SMTP server to send through
-                    $mail->SMTPAuth   = true;                                   //Enable SMTP authentication
-                    $mail->Username   = 'thytamphan@gmail.com';                     //SMTP username
-                    $mail->Password   = 'unmwzaaxdzfrghzw';                               //SMTP password
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
-                    $mail->Port       = 465;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
-                    $mail->CharSet = 'UTF-8';
-
-                    //Recipients
-                    $mail->setFrom('thytamphan@gmail.com', 'Manage Users');
-                    $mail->isHTML(true);                                  //Set email format to HTML
-                    $mail->Subject = 'Email kích hoạt tài khoản';
-                    // $mail->Body    = $content;
-                    if ($mail->send()) {
-                        $query = update('emails_queue', ['is_sent' => 1], $id);
-                    }
-                    $values = get_next_mail();
-                }
-                // sleep(60);
+            if ($sendMailStatus) {
+                setFlashSession('msg', 'Đăng kí thành công, vui lòng kiểm tra email để kích hoạt tài khoản');
+                setFlashSession('type', 'success');
+            } else {
+                setFlashSession('msg', 'Hệ thống đang gặp lỗi');
+                setFlashSession('type', 'danger');
             }
-
-            // $path = getUrl(__ENV) . '?module=auth&action=active_account&token=' . $token;
-            // $content = "<p>Xin chào $fullname,</p>";
-            // $content .= "<p>Vui lòng click vào link sau để kích hoạt tài khoản: $path</p>";
-            // $sendMailStatus = sendMail($formData['email'], 'Email kích hoạt tài khoản', $content);
-
-            // if ($sendMailStatus) {
-            //     setFlashSession('msg', 'Đăng kí thành công, vui lòng kiểm tra email để kích hoạt tài khoản');
-            //     setFlashSession('type', 'success');
-            // } else {
-            //     setFlashSession('msg', 'Hệ thống đang gặp lỗi');
-            //     setFlashSession('type', 'danger');
-            // }
         } else {
             setFlashSession('msg', 'Hệ thống đang gặp lỗi');
             setFlashSession('type', 'danger');
         }
-
-
         redirect('?module=auth&action=register');
     } else {
         setFlashSession('msg', 'Đã có lỗi xảy ra, vui lòng kiểm tra lại');
